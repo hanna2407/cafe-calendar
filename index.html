@@ -267,6 +267,10 @@ body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); 
       <div class="top-drinks-title" id="topDrinksTitle">자주 마신 음료 TOP 5</div>
       <div id="drinkRankList"></div>
     </div>
+    <div class="top-drinks">
+      <div class="top-drinks-title" id="topDessertsTitle">자주 먹은 디저트 TOP 5</div>
+      <div id="dessertRankList"></div>
+    </div>
   </div>
 </div>
 
@@ -280,10 +284,16 @@ body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); 
       <input type="text" id="cafeName" placeholder="어느 카페였나요?" maxlength="40" />
     </div>
     <div class="field">
-      <label>주문한 음료 <span style="color:var(--text3);font-weight:400">(음료명 · 금액 · 수량)</span></label>
+      <label>음료 <span style="color:var(--text3);font-weight:400">(음료명 · 금액 · 수량)</span></label>
       <div class="drink-rows" id="drinkRows"></div>
       <button class="add-drink-btn" id="addDrinkBtn">+ 음료 추가</button>
       <div class="drink-total" id="drinkTotal"></div>
+    </div>
+    <div class="field">
+      <label>디저트 <span style="color:var(--text3);font-weight:400">(디저트명 · 금액 · 수량)</span></label>
+      <div class="drink-rows" id="dessertRows"></div>
+      <button class="add-drink-btn" id="addDessertBtn">+ 디저트 추가</button>
+      <div class="drink-total" id="dessertTotal"></div>
     </div>
     <div class="field">
       <label>메모</label>
@@ -419,8 +429,10 @@ function keyOf(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).
 function fmt(n) { return n.toLocaleString(); }
 
 function totalAmount(v) {
-  if (!v || !v.drinks) return 0;
-  return v.drinks.reduce((s, d) => s + (parseInt(d.price)||0) * (parseInt(d.qty)||1), 0);
+  if (!v) return 0;
+  const d = (v.drinks||[]).reduce((s,d)=>s+(parseInt(d.price)||0)*(parseInt(d.qty)||1),0);
+  const t = (v.desserts||[]).reduce((s,d)=>s+(parseInt(d.price)||0)*(parseInt(d.qty)||1),0);
+  return d + t;
 }
 
 async function compressImage(file, maxW=800, quality=0.72) {
@@ -506,6 +518,8 @@ function renderLog(y,m) {
     const d = parseInt(k.split('-')[2]);
     const amount = totalAmount(v);
     const drinkSummary = v.drinks && v.drinks.length ? v.drinks.map(d=>d.name||'음료').join(', ') : '';
+    const dessertSummary = v.desserts && v.desserts.length ? v.desserts.map(d=>d.name||'디저트').join(', ') : '';
+    const itemSummary = [drinkSummary, dessertSummary].filter(Boolean).join(' · ');
     const photos = v.photos || [];
     const thumbs = photos.slice(0,5).map((src,i)=>`<img class="log-thumb" src="${src}" data-key="${k}" data-idx="${i}" alt="카페사진">`).join('');
     return `<div class="log-item">
@@ -513,7 +527,7 @@ function renderLog(y,m) {
         <div class="log-day">${d}일</div>
         <div class="log-body">
           <div class="log-name">${v.name||'카페 방문'}</div>
-          ${drinkSummary?`<div class="log-drinks">${drinkSummary}</div>`:''}
+          ${itemSummary?`<div class="log-drinks">${itemSummary}</div>`:''}
         </div>
         ${amount?`<div class="log-amount">${fmt(amount)}원</div>`:''}
       </div>
@@ -531,6 +545,7 @@ function renderLog(y,m) {
 
 // ── MODAL ──
 let drinkList = [];
+let dessertList = [];
 
 function openModalByKey(key) {
   const p = key.split('-');
@@ -546,8 +561,10 @@ function openModal(y,m,d,key) {
   document.getElementById('cafeName').value = v?v.name:'';
   document.getElementById('cafeNote').value = v?v.note:'';
   drinkList = v&&v.drinks ? v.drinks.map(d=>({...d})) : [{name:'',price:'',qty:'1'}];
+  dessertList = v&&v.desserts ? v.desserts.map(d=>({...d})) : [{name:'',price:'',qty:'1'}];
   pendingPhotos = v&&v.photos ? [...v.photos] : [];
   renderDrinkRows();
+  renderDessertRows();
   renderPreview();
   document.getElementById('deleteBtn').style.display = v?'':'none';
   document.getElementById('saveBtn').textContent = v?'수정':'저장';
@@ -591,11 +608,44 @@ document.getElementById('addDrinkBtn').addEventListener('click', ()=>{
   setTimeout(()=>{ const inputs = document.querySelectorAll('.drink-name'); inputs[inputs.length-1].focus(); },50);
 });
 
+function renderDessertRows() {
+  const container = document.getElementById('dessertRows');
+  container.innerHTML = dessertList.map((d,i)=>`
+    <div class="drink-row">
+      <input class="dessert-name" type="text" placeholder="디저트명" value="${d.name||''}" data-i="${i}" data-field="name" maxlength="30"/>
+      <input class="drink-price" type="number" placeholder="금액" value="${d.price||''}" data-i="${i}" data-field="price" min="0" inputmode="numeric"/>
+      <input class="drink-qty" type="number" placeholder="개" value="${d.qty||1}" data-i="${i}" data-field="qty" min="1" max="99" inputmode="numeric"/>
+      <button class="drink-remove dessert-remove" data-i="${i}">×</button>
+    </div>`).join('');
+  container.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',()=>{ dessertList[inp.dataset.i][inp.dataset.field]=inp.value; updateDessertTotal(); });
+  });
+  container.querySelectorAll('.dessert-remove').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(dessertList.length>1){dessertList.splice(parseInt(btn.dataset.i),1);renderDessertRows();}
+      else{dessertList[0]={name:'',price:'',qty:'1'};renderDessertRows();}
+    });
+  });
+  updateDessertTotal();
+}
+
+function updateDessertTotal() {
+  const total = dessertList.reduce((s,d)=>s+(parseInt(d.price)||0)*(parseInt(d.qty)||1),0);
+  document.getElementById('dessertTotal').innerHTML = total?`합계 <strong>${fmt(total)}원</strong>`:'';
+}
+
+document.getElementById('addDessertBtn').addEventListener('click',()=>{
+  dessertList.push({name:'',price:'',qty:'1'});
+  renderDessertRows();
+  setTimeout(()=>{ const inputs=document.querySelectorAll('.dessert-name'); inputs[inputs.length-1].focus(); },50);
+});
+
 document.getElementById('saveBtn').addEventListener('click', ()=>{
   const name = document.getElementById('cafeName').value.trim();
   const note = document.getElementById('cafeNote').value.trim();
   const drinks = drinkList.filter(d=>d.name||d.price);
-  visits[selectedKey] = { name, note, drinks, photos: pendingPhotos };
+  const desserts = dessertList.filter(d=>d.name||d.price);
+  visits[selectedKey] = { name, note, drinks, desserts, photos: pendingPhotos };
   save(); closeModal(); render();
   showToast(name?`${name} 기록 완료 ☕`:'카페 방문 기록 완료 ☕');
 });
@@ -750,6 +800,34 @@ function renderDrinkRank() {
           <span class="rank-count">${cnt}잔</span>
         </div>`).join('')
     : '<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">아직 음료 기록이 없어요</div>';
+
+  const dessertMap = {};
+  Object.entries(visits).forEach(([k,v])=>{
+    const y = parseInt(k.split('-')[0]);
+    if (statPeriod==='month' && y!==statYear) return;
+    if (v.desserts) v.desserts.forEach(d=>{
+      if(!d.name) return;
+      const qty = parseInt(d.qty)||1;
+      dessertMap[d.name] = (dessertMap[d.name]||0)+qty;
+    });
+  });
+
+  const dsorted = Object.entries(dessertMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const dmaxCount = dsorted.length ? dsorted[0][1] : 1;
+  document.getElementById('topDessertsTitle').textContent =
+    statPeriod==='month' ? `${statYear}년 자주 먹은 디저트 TOP 5` : `전체 자주 먹은 디저트 TOP 5`;
+
+  document.getElementById('dessertRankList').innerHTML = dsorted.length
+    ? dsorted.map(([name,cnt],i)=>`
+        <div class="drink-rank-item">
+          <span class="rank-num">${i+1}</span>
+          <div class="rank-bar-wrap">
+            <div class="rank-name">${name}</div>
+            <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${Math.round(cnt/dmaxCount*100)}%;background:var(--p100)"></div></div>
+          </div>
+          <span class="rank-count">${cnt}개</span>
+        </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">아직 디저트 기록이 없어요</div>';
 }
 
 // ── TAB ──
