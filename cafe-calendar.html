@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>☕ 카페 달력</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --p50:#EEEDFE; --p100:#CECBF6; --p200:#AFA9EC; --p400:#7F77DD; --p600:#534AB7; --p800:#3C3489;
+  --bg:#F7F6FF; --surface:#FFFFFF;
+  --border:rgba(127,119,221,0.15); --border-md:rgba(127,119,221,0.28);
+  --text:#1A1830; --text2:#6B6880; --text3:#A9A6BB;
+  --red:#E24B4A; --blue:#378ADD; --green:#639922; --amber:#BA7517;
+  --r-md:10px; --r-lg:16px; --r-xl:20px;
+}
+body { font-family:'Pretendard',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px 16px 80px; }
+.app { max-width:440px; margin:0 auto; }
+
+/* Header */
+.app-header { text-align:center; margin-bottom:20px; }
+.app-title { font-size:22px; font-weight:600; letter-spacing:-0.4px; }
+.app-title span { color:var(--p400); }
+.app-sub { font-size:13px; color:var(--text3); margin-top:4px; }
+
+/* Tab nav */
+.tab-nav { display:flex; background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-xl); padding:4px; margin-bottom:16px; gap:4px; }
+.tab-btn { flex:1; padding:9px; border:none; background:none; border-radius:14px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; transition:all 0.15s; font-family:'Pretendard',sans-serif; }
+.tab-btn.active { background:var(--p400); color:#fff; }
+
+/* Views */
+.view { display:none; }
+.view.active { display:block; }
+
+/* Stats row */
+.stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+.stat { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); padding:14px 10px; text-align:center; }
+.stat-num { font-size:22px; font-weight:600; color:var(--p400); line-height:1; }
+.stat-label { font-size:11px; color:var(--text3); margin-top:5px; }
+
+/* Storage bar */
+.storage-bar { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+.storage-info { flex:1; }
+.storage-label { font-size:11px; color:var(--text3); margin-bottom:4px; display:flex; justify-content:space-between; }
+.storage-track { height:4px; background:var(--p50); border-radius:2px; overflow:hidden; }
+.storage-fill { height:100%; background:var(--p400); border-radius:2px; transition:width 0.3s; }
+.storage-fill.warn { background:var(--amber); }
+.storage-fill.danger { background:var(--red); }
+
+/* Calendar */
+.calendar { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-xl); overflow:hidden; margin-bottom:16px; }
+.cal-header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 14px; border-bottom:0.5px solid var(--border); }
+.nav-btn { width:32px; height:32px; background:var(--bg); border:0.5px solid var(--border-md); border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text2); font-size:18px; transition:background 0.15s; }
+.nav-btn:hover { background:var(--p50); color:var(--p600); }
+.month-label { font-size:16px; font-weight:600; letter-spacing:-0.2px; }
+.weekdays { display:grid; grid-template-columns:repeat(7,1fr); padding:8px 12px 4px; }
+.wd { text-align:center; font-size:11px; font-weight:500; color:var(--text3); padding:4px 0; }
+.wd.sun { color:var(--red); } .wd.sat { color:var(--blue); }
+.days-grid { display:grid; grid-template-columns:repeat(7,1fr); padding:4px 12px 16px; gap:3px; }
+.day { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border-radius:10px; transition:background 0.12s; gap:1px; }
+.day:hover:not(.empty) { background:var(--p50); }
+.day.empty { cursor:default; pointer-events:none; }
+.day-num { font-size:13px; color:var(--text); line-height:1; }
+.day.sun .day-num { color:var(--red); } .day.sat .day-num { color:var(--blue); }
+.day.other-month .day-num { color:var(--text3); opacity:0.5; }
+.day.today .day-num { background:var(--p400); color:#fff; border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; font-weight:600; }
+.day.cafe { background:var(--p50); }
+.day.cafe:hover { background:#E0DEFC; }
+.day-dot { font-size:10px; line-height:1; }
+.day.holiday .day-num { color:var(--red); }
+.day-holiday-name { font-size:8px; color:var(--red); line-height:1; text-align:center; max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; padding:0 2px; }
+.day-holiday-name.substitute { color:var(--amber); }
+
+/* Log */
+.section-title { font-size:13px; font-weight:500; color:var(--text2); margin-bottom:10px; padding-left:2px; }
+.log-list { display:flex; flex-direction:column; gap:8px; }
+.log-item { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); overflow:hidden; cursor:pointer; transition:border-color 0.12s; }
+.log-item:hover { border-color:var(--border-md); }
+.log-main { display:flex; align-items:flex-start; gap:10px; padding:12px 14px; }
+.log-day { font-size:13px; font-weight:600; color:var(--p400); min-width:30px; padding-top:1px; }
+.log-body { flex:1; min-width:0; }
+.log-name { font-size:14px; font-weight:500; color:var(--text); }
+.log-drinks { font-size:12px; color:var(--text2); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.log-amount { font-size:13px; font-weight:600; color:var(--p600); white-space:nowrap; }
+.log-photos { display:flex; gap:4px; padding:0 14px 12px; flex-wrap:wrap; }
+.log-thumb { width:60px; height:60px; object-fit:cover; border-radius:8px; border:0.5px solid var(--border); cursor:pointer; }
+.log-empty { text-align:center; font-size:13px; color:var(--text3); padding:24px 0; background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); }
+
+/* ── STATS VIEW ── */
+.stats-view-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.stats-view-title { font-size:16px; font-weight:600; }
+.period-toggle { display:flex; background:var(--surface); border:0.5px solid var(--border); border-radius:40px; padding:3px; gap:3px; }
+.period-btn { padding:6px 14px; border:none; background:none; border-radius:40px; font-size:12px; font-weight:500; color:var(--text2); cursor:pointer; font-family:'Pretendard',sans-serif; transition:all 0.15s; }
+.period-btn.active { background:var(--p400); color:#fff; }
+
+.big-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.big-stat { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); padding:16px 14px; }
+.big-stat-label { font-size:11px; color:var(--text3); margin-bottom:6px; }
+.big-stat-num { font-size:26px; font-weight:600; color:var(--p400); letter-spacing:-0.5px; }
+.big-stat-unit { font-size:13px; font-weight:400; color:var(--text2); margin-left:2px; }
+
+.chart-card { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); padding:16px 14px; margin-bottom:12px; }
+.chart-card-title { font-size:13px; font-weight:500; color:var(--text2); margin-bottom:14px; }
+.bar-chart { display:flex; flex-direction:column; gap:8px; }
+.bar-row { display:flex; align-items:center; gap:8px; }
+.bar-month { font-size:12px; color:var(--text2); min-width:28px; text-align:right; }
+.bar-track { flex:1; height:18px; background:var(--p50); border-radius:4px; overflow:hidden; position:relative; }
+.bar-fill { height:100%; background:var(--p400); border-radius:4px; transition:width 0.4s; min-width:3px; }
+.bar-val { font-size:11px; color:var(--text2); min-width:50px; text-align:right; }
+
+.top-drinks { background:var(--surface); border:0.5px solid var(--border); border-radius:var(--r-lg); padding:16px 14px; margin-bottom:12px; }
+.top-drinks-title { font-size:13px; font-weight:500; color:var(--text2); margin-bottom:12px; }
+.drink-rank-item { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.drink-rank-item:last-child { margin-bottom:0; }
+.rank-num { font-size:12px; font-weight:600; color:var(--p400); min-width:18px; }
+.rank-bar-wrap { flex:1; }
+.rank-name { font-size:13px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.rank-bar-track { height:5px; background:var(--p50); border-radius:3px; overflow:hidden; }
+.rank-bar-fill { height:100%; background:var(--p200); border-radius:3px; }
+.rank-count { font-size:12px; color:var(--text2); white-space:nowrap; }
+
+.year-nav { display:flex; align-items:center; gap:8px; }
+.year-nav-btn { width:28px; height:28px; background:var(--bg); border:0.5px solid var(--border-md); border-radius:7px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text2); }
+.year-nav-btn:hover { background:var(--p50); }
+.year-label { font-size:14px; font-weight:600; min-width:44px; text-align:center; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(26,24,48,0.45); z-index:200; align-items:flex-end; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border-radius:24px 24px 0 0; padding:20px 20px 44px; width:100%; max-width:440px; max-height:92vh; overflow-y:auto; animation:slideUp 0.22s ease; }
+@keyframes slideUp { from{transform:translateY(24px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-handle { width:40px; height:4px; background:var(--border-md); border-radius:2px; margin:0 auto 18px; }
+.modal-date { font-size:15px; font-weight:600; margin-bottom:16px; }
+.field { margin-bottom:12px; }
+.field label { display:block; font-size:12px; font-weight:500; color:var(--text2); margin-bottom:6px; }
+.field input, .field textarea, .field select {
+  width:100%; border:0.5px solid var(--border-md); border-radius:var(--r-md);
+  padding:10px 14px; font-size:14px; font-family:'Pretendard',sans-serif;
+  color:var(--text); background:var(--bg); outline:none; transition:border-color 0.12s; resize:none;
+  -webkit-appearance:none; appearance:none;
+}
+.field input:focus, .field textarea:focus, .field select:focus { border-color:var(--p400); }
+.field textarea { height:62px; }
+
+/* Drink rows */
+.drink-rows { display:flex; flex-direction:column; gap:7px; margin-bottom:4px; }
+.drink-row { display:flex; gap:6px; align-items:center; }
+.drink-row input.drink-name { flex:1.6; }
+.drink-row input.drink-price { flex:1; }
+.drink-row input.drink-qty { flex:0.6; text-align:center; }
+.drink-remove { width:28px; height:28px; min-width:28px; border:0.5px solid var(--border-md); background:var(--bg); border-radius:7px; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text2); }
+.add-drink-btn { width:100%; padding:9px; border:1.5px dashed var(--border-md); background:none; border-radius:var(--r-md); font-size:13px; color:var(--text2); cursor:pointer; font-family:'Pretendard',sans-serif; transition:border-color 0.15s; margin-top:2px; }
+.add-drink-btn:hover { border-color:var(--p400); color:var(--p400); }
+.drink-total { text-align:right; font-size:13px; color:var(--text2); margin-top:6px; }
+.drink-total strong { color:var(--p600); font-size:15px; }
+
+.photo-upload-area { border:1.5px dashed var(--border-md); border-radius:var(--r-lg); padding:14px; text-align:center; cursor:pointer; transition:border-color 0.15s,background 0.15s; }
+.photo-upload-area:hover { border-color:var(--p400); background:var(--p50); }
+.photo-upload-area input { display:none; }
+.upload-icon { font-size:22px; margin-bottom:5px; }
+.upload-text { font-size:13px; color:var(--text2); }
+.upload-sub { font-size:11px; color:var(--text3); margin-top:2px; }
+.photo-preview-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-top:8px; }
+.photo-preview-item { position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:0.5px solid var(--border); }
+.photo-preview-item img { width:100%; height:100%; object-fit:cover; }
+.photo-remove-btn { position:absolute; top:3px; right:3px; width:20px; height:20px; background:rgba(26,24,48,0.62); border:none; border-radius:50%; color:#fff; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+.modal-actions { display:flex; gap:8px; margin-top:20px; }
+.btn { flex:1; padding:12px; border-radius:var(--r-md); font-size:14px; font-weight:500; font-family:'Pretendard',sans-serif; cursor:pointer; transition:opacity 0.12s; border:none; }
+.btn:hover { opacity:0.85; }
+.btn-save { background:var(--p400); color:#fff; }
+.btn-cancel { background:var(--bg); color:var(--text2); border:0.5px solid var(--border-md); }
+.btn-delete { background:#FEF0F0; color:var(--red); }
+
+/* Lightbox */
+.lightbox { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:400; align-items:center; justify-content:center; flex-direction:column; gap:12px; }
+.lightbox.open { display:flex; }
+.lightbox img { max-width:92vw; max-height:78vh; object-fit:contain; border-radius:12px; }
+.lightbox-nav { display:flex; gap:12px; align-items:center; }
+.lb-btn { background:rgba(255,255,255,0.15); border:none; color:#fff; border-radius:8px; padding:8px 18px; font-size:14px; cursor:pointer; font-family:'Pretendard',sans-serif; }
+.lb-btn:hover { background:rgba(255,255,255,0.25); }
+.lb-counter { font-size:13px; color:rgba(255,255,255,0.6); }
+.lb-close { position:absolute; top:20px; right:20px; background:none; border:none; color:#fff; font-size:28px; cursor:pointer; }
+
+.toast { position:fixed; bottom:32px; left:50%; transform:translateX(-50%) translateY(10px); background:var(--text); color:#fff; font-size:13px; padding:10px 20px; border-radius:20px; opacity:0; transition:all 0.2s; pointer-events:none; white-space:nowrap; z-index:500; }
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="app-title">☕ <span>카페</span> 달력</div>
+    <div class="app-sub">방문한 카페를 날짜에 기록해요</div>
+  </header>
+
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="calendar">📅 달력</button>
+    <button class="tab-btn" data-tab="stats">📊 통계</button>
+  </div>
+
+  <!-- CALENDAR VIEW -->
+  <div class="view active" id="view-calendar">
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="monthCount">0</div><div class="stat-label">이번 달</div></div>
+      <div class="stat"><div class="stat-num" id="monthSpend">0</div><div class="stat-label">이번 달 지출</div></div>
+      <div class="stat"><div class="stat-num" id="streakCount">0</div><div class="stat-label">연속 일수</div></div>
+    </div>
+
+    <div class="storage-bar">
+      <div style="font-size:18px">💾</div>
+      <div class="storage-info">
+        <div class="storage-label"><span>저장 공간</span><span id="storageText">계산 중...</span></div>
+        <div class="storage-track"><div class="storage-fill" id="storageFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="calendar">
+      <div class="cal-header">
+        <button class="nav-btn" id="prevBtn">&#8249;</button>
+        <span class="month-label" id="monthLabel"></span>
+        <button class="nav-btn" id="nextBtn">&#8250;</button>
+      </div>
+      <div class="weekdays">
+        <div class="wd sun">일</div><div class="wd">월</div><div class="wd">화</div>
+        <div class="wd">수</div><div class="wd">목</div><div class="wd">금</div><div class="wd sat">토</div>
+      </div>
+      <div class="days-grid" id="daysGrid"></div>
+    </div>
+
+    <div class="section-title">이번 달 방문 기록</div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <!-- STATS VIEW -->
+  <div class="view" id="view-stats">
+    <div class="stats-view-header">
+      <div class="year-nav">
+        <button class="year-nav-btn" id="statPrevYear">&#8249;</button>
+        <span class="year-label" id="statYearLabel"></span>
+        <button class="year-nav-btn" id="statNextYear">&#8250;</button>
+      </div>
+      <div class="period-toggle">
+        <button class="period-btn active" data-period="month">월별</button>
+        <button class="period-btn" data-period="year">연도별</button>
+      </div>
+    </div>
+
+    <div class="big-stat-row">
+      <div class="big-stat">
+        <div class="big-stat-label" id="bigLabel1">올해 총 지출</div>
+        <div><span class="big-stat-num" id="bigNum1">0</span><span class="big-stat-unit">원</span></div>
+      </div>
+      <div class="big-stat">
+        <div class="big-stat-label" id="bigLabel2">올해 방문 횟수</div>
+        <div><span class="big-stat-num" id="bigNum2">0</span><span class="big-stat-unit">회</span></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-card-title" id="chartTitle">월별 지출</div>
+      <div class="bar-chart" id="barChart"></div>
+    </div>
+
+    <div class="top-drinks">
+      <div class="top-drinks-title" id="topDrinksTitle">자주 마신 음료 TOP 5</div>
+      <div id="drinkRankList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-date" id="modalDate"></div>
+    <div class="field">
+      <label>카페 이름</label>
+      <input type="text" id="cafeName" placeholder="어느 카페였나요?" maxlength="40" />
+    </div>
+    <div class="field">
+      <label>주문한 음료 <span style="color:var(--text3);font-weight:400">(음료명 · 금액 · 수량)</span></label>
+      <div class="drink-rows" id="drinkRows"></div>
+      <button class="add-drink-btn" id="addDrinkBtn">+ 음료 추가</button>
+      <div class="drink-total" id="drinkTotal"></div>
+    </div>
+    <div class="field">
+      <label>메모</label>
+      <textarea id="cafeNote" placeholder="오늘의 한 줄 기록..."></textarea>
+    </div>
+    <div class="field">
+      <label>사진 <span style="color:var(--text3);font-weight:400">(최대 5장, 자동 압축)</span></label>
+      <div class="photo-upload-area" id="uploadArea">
+        <input type="file" id="photoInput" accept="image/*" multiple />
+        <div class="upload-icon">📷</div>
+        <div class="upload-text">사진을 탭해서 추가하세요</div>
+        <div class="upload-sub">자동으로 압축돼요</div>
+      </div>
+      <div class="photo-preview-grid" id="previewGrid"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="cancelBtn">취소</button>
+      <button class="btn btn-delete" id="deleteBtn" style="display:none">삭제</button>
+      <button class="btn btn-save" id="saveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose">×</button>
+  <img id="lbImg" src="" alt="사진" />
+  <div class="lightbox-nav">
+    <button class="lb-btn" id="lbPrev">‹ 이전</button>
+    <span class="lb-counter" id="lbCounter"></span>
+    <button class="lb-btn" id="lbNext">다음 ›</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY = 'cafe-calendar-v3';
+let visits = {};
+let cur = new Date();
+let statYear = new Date().getFullYear();
+let statPeriod = 'month';
+let selectedKey = null;
+let pendingPhotos = [];
+let lbPhotos = [], lbIdx = 0;
+
+// ── 공휴일 데이터 (고정 + 대체공휴일 포함) ──
+const FIXED_HOLIDAYS = {
+  '01-01': '신정',
+  '03-01': '삼일절',
+  '05-05': '어린이날',
+  '06-06': '현충일',
+  '08-15': '광복절',
+  '10-03': '개천절',
+  '10-09': '한글날',
+  '12-25': '크리스마스',
+};
+
+// 음력 기반 공휴일 (2023~2030 미리 계산)
+const LUNAR_HOLIDAYS = {
+  '2023-01-21':'설날 전날','2023-01-22':'설날','2023-01-23':'설날 다음날',
+  '2023-01-24':'대체공휴일',
+  '2023-04-22':'부처님오신날',
+  '2023-09-28':'추석 전날','2023-09-29':'추석','2023-09-30':'추석 다음날',
+  '2024-02-09':'설날 전날','2024-02-10':'설날','2024-02-11':'설날 다음날',
+  '2024-02-12':'대체공휴일',
+  '2024-05-06':'대체공휴일',
+  '2024-05-15':'부처님오신날',
+  '2024-09-16':'추석 전날','2024-09-17':'추석','2024-09-18':'추석 다음날',
+  '2025-01-28':'설날 전날','2025-01-29':'설날','2025-01-30':'설날 다음날',
+  '2025-03-03':'대체공휴일',
+  '2025-05-05':'부처님오신날',
+  '2025-05-06':'대체공휴일',
+  '2025-10-05':'추석 전날','2025-10-06':'추석','2025-10-07':'추석 다음날',
+  '2025-10-08':'대체공휴일',
+  '2026-02-16':'설날 전날','2026-02-17':'설날','2026-02-18':'설날 다음날',
+  '2026-03-02':'대체공휴일',
+  '2026-05-24':'부처님오신날',
+  '2026-05-25':'대체공휴일',
+  '2026-08-17':'대체공휴일',
+  '2026-09-24':'추석 전날','2026-09-25':'추석','2026-09-26':'추석 다음날',
+  '2027-02-05':'설날 전날','2027-02-06':'설날','2027-02-07':'설날 다음날',
+  '2027-03-01':'삼일절',
+  '2027-05-13':'부처님오신날',
+  '2027-09-14':'추석 전날','2027-09-15':'추석','2027-09-16':'추석 다음날',
+  '2027-10-04':'대체공휴일',
+  '2027-10-11':'대체공휴일',
+  '2028-01-26':'설날 전날','2028-01-27':'설날','2028-01-28':'설날 다음날',
+  '2028-05-02':'부처님오신날',
+  '2028-08-14':'대체공휴일',
+  '2028-10-02':'추석 전날','2028-10-03':'추석','2028-10-04':'추석 다음날',
+  '2028-10-09':'한글날',
+  '2029-02-12':'설날 전날','2029-02-13':'설날','2029-02-14':'설날 다음날',
+  '2029-02-15':'대체공휴일',
+  '2029-05-20':'부처님오신날',
+  '2029-06-06':'현충일',
+  '2029-10-02':'추석 전날','2029-10-03':'추석','2029-10-04':'추석 다음날',
+  '2030-02-02':'설날 전날','2030-02-03':'설날','2030-02-04':'설날 다음날',
+  '2030-05-09':'부처님오신날',
+  '2030-05-06':'대체공휴일',
+  '2030-09-20':'추석 전날','2030-09-21':'추석','2030-09-22':'추석 다음날',
+};
+
+function getHoliday(y, m, d) {
+  const key = keyOf(y, m, d);
+  if (LUNAR_HOLIDAYS[key]) return LUNAR_HOLIDAYS[key];
+  const mmdd = `${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  return FIXED_HOLIDAYS[mmdd] || null;
+}
+
+function load() {
+  try { visits = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { visits = {}; }
+}
+function save() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(visits)); updateStorageBar(); }
+  catch(e) { showToast('저장 공간이 부족해요. 오래된 사진을 삭제해보세요.'); }
+}
+
+function updateStorageBar() {
+  try {
+    const used = new Blob([JSON.stringify(visits)]).size;
+    const max = 4.5 * 1024 * 1024;
+    const pct = Math.min(100, Math.round(used / max * 100));
+    const fill = document.getElementById('storageFill');
+    if (!fill) return;
+    fill.style.width = pct + '%';
+    fill.className = 'storage-fill' + (pct > 80 ? ' danger' : pct > 60 ? ' warn' : '');
+    document.getElementById('storageText').textContent = `${(used/1024/1024).toFixed(1)}MB / 4.5MB`;
+  } catch(e) {}
+}
+
+function keyOf(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function fmt(n) { return n.toLocaleString(); }
+
+function totalAmount(v) {
+  if (!v || !v.drinks) return 0;
+  return v.drinks.reduce((s, d) => s + (parseInt(d.price)||0) * (parseInt(d.qty)||1), 0);
+}
+
+async function compressImage(file, maxW=800, quality=0.72) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ── CALENDAR ──
+function render() {
+  const y = cur.getFullYear(), m = cur.getMonth();
+  const today = new Date();
+  document.getElementById('monthLabel').textContent = `${y}년 ${m+1}월`;
+
+  const grid = document.getElementById('daysGrid');
+  grid.innerHTML = '';
+  const firstDow = new Date(y,m,1).getDay();
+  const totalDays = new Date(y,m+1,0).getDate();
+
+  for (let i=0; i<firstDow; i++) {
+    const el = document.createElement('div'); el.className='day empty'; grid.appendChild(el);
+  }
+  for (let d=1; d<=totalDays; d++) {
+    const key = keyOf(y,m,d);
+    const dow = new Date(y,m,d).getDay();
+    const isToday = y===today.getFullYear()&&m===today.getMonth()&&d===today.getDate();
+    const v = visits[key];
+    const holiday = getHoliday(y, m, d);
+    const el = document.createElement('div');
+    let cls = 'day';
+    if (dow===0) cls+=' sun'; if (dow===6) cls+=' sat';
+    if (isToday) cls+=' today'; if (v) cls+=' cafe';
+    if (holiday) cls+=' holiday';
+    el.className = cls;
+    const hasPhoto = v && v.photos && v.photos.length > 0;
+    el.innerHTML = `<span class="day-num">${d}</span><span class="day-dot">${hasPhoto?'📸':v?'☕':''}</span>${holiday?`<span class="day-holiday-name${holiday==='대체공휴일'?' substitute':''}">${holiday}</span>`:''}`;
+    el.addEventListener('click', () => openModal(y,m,d,key));
+    grid.appendChild(el);
+  }
+  updateCalStats(y,m);
+  renderLog(y,m);
+  updateStorageBar();
+}
+
+function updateCalStats(y,m) {
+  const prefix = `${y}-${String(m+1).padStart(2,'0')}`;
+  const entries = Object.entries(visits).filter(([k])=>k.startsWith(prefix));
+  document.getElementById('monthCount').textContent = entries.length;
+  const spend = entries.reduce((s,[,v])=>s+totalAmount(v), 0);
+  const spendEl = document.getElementById('monthSpend');
+  spendEl.textContent = spend >= 10000 ? (spend/10000).toFixed(1)+'만' : fmt(spend);
+
+  const today = new Date();
+  let streak = 0, check = new Date(today);
+  while (visits[keyOf(check.getFullYear(),check.getMonth(),check.getDate())]) {
+    streak++; check.setDate(check.getDate()-1);
+  }
+  document.getElementById('streakCount').textContent = streak;
+}
+
+function renderLog(y,m) {
+  const prefix = `${y}-${String(m+1).padStart(2,'0')}`;
+  const list = document.getElementById('logList');
+  const entries = Object.entries(visits).filter(([k])=>k.startsWith(prefix)).sort((a,b)=>b[0].localeCompare(a[0]));
+  if (!entries.length) {
+    list.innerHTML = '<div class="log-empty">아직 기록이 없어요 ☕<br><span style="font-size:12px;display:block;margin-top:4px">날짜를 탭해서 기록해보세요</span></div>';
+    return;
+  }
+  list.innerHTML = entries.map(([k,v]) => {
+    const d = parseInt(k.split('-')[2]);
+    const amount = totalAmount(v);
+    const drinkSummary = v.drinks && v.drinks.length ? v.drinks.map(d=>d.name||'음료').join(', ') : '';
+    const photos = v.photos || [];
+    const thumbs = photos.slice(0,5).map((src,i)=>`<img class="log-thumb" src="${src}" data-key="${k}" data-idx="${i}" alt="카페사진">`).join('');
+    return `<div class="log-item">
+      <div class="log-main" onclick="openModalByKey('${k}')">
+        <div class="log-day">${d}일</div>
+        <div class="log-body">
+          <div class="log-name">${v.name||'카페 방문'}</div>
+          ${drinkSummary?`<div class="log-drinks">${drinkSummary}</div>`:''}
+        </div>
+        ${amount?`<div class="log-amount">${fmt(amount)}원</div>`:''}
+      </div>
+      ${thumbs?`<div class="log-photos">${thumbs}</div>`:''}
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.log-thumb').forEach(img => {
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      openLightbox(visits[img.dataset.key].photos, parseInt(img.dataset.idx));
+    });
+  });
+}
+
+// ── MODAL ──
+let drinkList = [];
+
+function openModalByKey(key) {
+  const p = key.split('-');
+  openModal(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]),key);
+}
+
+function openModal(y,m,d,key) {
+  selectedKey = key;
+  const v = visits[key];
+  const days=['일','월','화','수','목','금','토'];
+  const holiday = getHoliday(y, m, d);
+  document.getElementById('modalDate').textContent = `${y}년 ${m+1}월 ${d}일 (${days[new Date(y,m,d).getDay()]})${holiday ? ' · '+holiday : ''}`;
+  document.getElementById('cafeName').value = v?v.name:'';
+  document.getElementById('cafeNote').value = v?v.note:'';
+  drinkList = v&&v.drinks ? v.drinks.map(d=>({...d})) : [{name:'',price:'',qty:'1'}];
+  pendingPhotos = v&&v.photos ? [...v.photos] : [];
+  renderDrinkRows();
+  renderPreview();
+  document.getElementById('deleteBtn').style.display = v?'':'none';
+  document.getElementById('saveBtn').textContent = v?'수정':'저장';
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('cafeName').focus(),150);
+}
+
+function renderDrinkRows() {
+  const container = document.getElementById('drinkRows');
+  container.innerHTML = drinkList.map((d,i)=>`
+    <div class="drink-row">
+      <input class="drink-name" type="text" placeholder="음료명" value="${d.name||''}" data-i="${i}" data-field="name" maxlength="30"/>
+      <input class="drink-price" type="number" placeholder="금액" value="${d.price||''}" data-i="${i}" data-field="price" min="0" inputmode="numeric"/>
+      <input class="drink-qty" type="number" placeholder="잔" value="${d.qty||1}" data-i="${i}" data-field="qty" min="1" max="99" inputmode="numeric"/>
+      <button class="drink-remove" data-i="${i}">×</button>
+    </div>`).join('');
+
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      drinkList[inp.dataset.i][inp.dataset.field] = inp.value;
+      updateDrinkTotal();
+    });
+  });
+  container.querySelectorAll('.drink-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (drinkList.length > 1) { drinkList.splice(parseInt(btn.dataset.i),1); renderDrinkRows(); }
+      else { drinkList[0] = {name:'',price:'',qty:'1'}; renderDrinkRows(); }
+    });
+  });
+  updateDrinkTotal();
+}
+
+function updateDrinkTotal() {
+  const total = drinkList.reduce((s,d)=>s+(parseInt(d.price)||0)*(parseInt(d.qty)||1),0);
+  document.getElementById('drinkTotal').innerHTML = total ? `합계 <strong>${fmt(total)}원</strong>` : '';
+}
+
+document.getElementById('addDrinkBtn').addEventListener('click', ()=>{
+  drinkList.push({name:'',price:'',qty:'1'});
+  renderDrinkRows();
+  setTimeout(()=>{ const inputs = document.querySelectorAll('.drink-name'); inputs[inputs.length-1].focus(); },50);
+});
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const name = document.getElementById('cafeName').value.trim();
+  const note = document.getElementById('cafeNote').value.trim();
+  const drinks = drinkList.filter(d=>d.name||d.price);
+  visits[selectedKey] = { name, note, drinks, photos: pendingPhotos };
+  save(); closeModal(); render();
+  showToast(name?`${name} 기록 완료 ☕`:'카페 방문 기록 완료 ☕');
+});
+
+document.getElementById('deleteBtn').addEventListener('click', ()=>{
+  delete visits[selectedKey]; save(); closeModal(); render(); showToast('기록을 삭제했어요');
+});
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('modalOverlay')) closeModal();
+});
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+
+// ── PHOTO ──
+function renderPreview() {
+  const grid = document.getElementById('previewGrid');
+  grid.innerHTML = pendingPhotos.map((src,i)=>`
+    <div class="photo-preview-item">
+      <img src="${src}" alt="미리보기">
+      <button class="photo-remove-btn" data-idx="${i}">×</button>
+    </div>`).join('');
+  grid.querySelectorAll('.photo-remove-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{ pendingPhotos.splice(parseInt(btn.dataset.idx),1); renderPreview(); });
+  });
+  document.getElementById('uploadArea').style.display = pendingPhotos.length>=5?'none':'';
+}
+
+document.getElementById('uploadArea').addEventListener('click',()=>document.getElementById('photoInput').click());
+document.getElementById('photoInput').addEventListener('change', async e=>{
+  const files = Array.from(e.target.files);
+  const rem = 5-pendingPhotos.length;
+  const toProcess = files.slice(0,rem);
+  if(files.length>rem) showToast('최대 5장까지 등록할 수 있어요');
+  showToast('사진 압축 중...');
+  for(const f of toProcess) pendingPhotos.push(await compressImage(f));
+  renderPreview();
+  e.target.value='';
+  showToast(`사진 ${toProcess.length}장 추가됐어요`);
+});
+
+// ── LIGHTBOX ──
+function openLightbox(photos,idx) { lbPhotos=photos; lbIdx=idx; updateLightbox(); document.getElementById('lightbox').classList.add('open'); }
+function updateLightbox() {
+  document.getElementById('lbImg').src=lbPhotos[lbIdx];
+  document.getElementById('lbCounter').textContent=`${lbIdx+1} / ${lbPhotos.length}`;
+  document.getElementById('lbPrev').style.visibility=lbIdx>0?'':'hidden';
+  document.getElementById('lbNext').style.visibility=lbIdx<lbPhotos.length-1?'':'hidden';
+}
+document.getElementById('lbClose').addEventListener('click',()=>document.getElementById('lightbox').classList.remove('open'));
+document.getElementById('lbPrev').addEventListener('click',()=>{if(lbIdx>0){lbIdx--;updateLightbox();}});
+document.getElementById('lbNext').addEventListener('click',()=>{if(lbIdx<lbPhotos.length-1){lbIdx++;updateLightbox();}});
+document.getElementById('lightbox').addEventListener('click',e=>{if(e.target===document.getElementById('lightbox'))document.getElementById('lightbox').classList.remove('open');});
+
+// ── STATS ──
+function renderStats() {
+  document.getElementById('statYearLabel').textContent = statYear;
+
+  if (statPeriod === 'month') {
+    renderMonthStats();
+  } else {
+    renderYearStats();
+  }
+  renderDrinkRank();
+}
+
+function getMonthData(y) {
+  const months = Array.from({length:12},(_,i)=>({visits:0,amount:0}));
+  Object.entries(visits).forEach(([k,v])=>{
+    const parts = k.split('-');
+    if(parseInt(parts[0])===y) {
+      const m = parseInt(parts[1])-1;
+      months[m].visits++;
+      months[m].amount += totalAmount(v);
+    }
+  });
+  return months;
+}
+
+function renderMonthStats() {
+  const months = getMonthData(statYear);
+  const totalSpend = months.reduce((s,m)=>s+m.amount,0);
+  const totalVisits = months.reduce((s,m)=>s+m.visits,0);
+
+  document.getElementById('bigLabel1').textContent = `${statYear}년 총 지출`;
+  document.getElementById('bigLabel2').textContent = `${statYear}년 방문 횟수`;
+  document.getElementById('bigNum1').textContent = fmt(totalSpend);
+  document.getElementById('bigNum2').textContent = totalVisits;
+  document.getElementById('chartTitle').textContent = '월별 지출';
+
+  const maxAmt = Math.max(...months.map(m=>m.amount), 1);
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  document.getElementById('barChart').innerHTML = months.map((m,i)=>`
+    <div class="bar-row">
+      <span class="bar-month">${monthNames[i]}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(m.amount/maxAmt*100)}%"></div></div>
+      <span class="bar-val">${m.amount?fmt(m.amount)+'원':'–'}</span>
+    </div>`).join('');
+}
+
+function renderYearStats() {
+  const years = [...new Set(Object.keys(visits).map(k=>parseInt(k.split('-')[0])))].sort();
+  if (!years.length) { years.push(new Date().getFullYear()); }
+
+  const yearData = years.map(y=>{
+    const entries = Object.entries(visits).filter(([k])=>parseInt(k.split('-')[0])===y);
+    return { year:y, visits:entries.length, amount:entries.reduce((s,[,v])=>s+totalAmount(v),0) };
+  });
+
+  const totalSpend = yearData.reduce((s,y)=>s+y.amount,0);
+  const totalVisits = yearData.reduce((s,y)=>s+y.visits,0);
+
+  document.getElementById('bigLabel1').textContent = '전체 총 지출';
+  document.getElementById('bigLabel2').textContent = '전체 방문 횟수';
+  document.getElementById('bigNum1').textContent = fmt(totalSpend);
+  document.getElementById('bigNum2').textContent = totalVisits;
+  document.getElementById('chartTitle').textContent = '연도별 지출';
+
+  const maxAmt = Math.max(...yearData.map(y=>y.amount), 1);
+  document.getElementById('barChart').innerHTML = yearData.map(y=>`
+    <div class="bar-row">
+      <span class="bar-month">${y.year}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(y.amount/maxAmt*100)}%"></div></div>
+      <span class="bar-val">${y.amount?fmt(y.amount)+'원':'–'}</span>
+    </div>`).join('');
+}
+
+function renderDrinkRank() {
+  const drinkMap = {};
+  Object.entries(visits).forEach(([k,v])=>{
+    const y = parseInt(k.split('-')[0]);
+    if (statPeriod==='month' && y!==statYear) return;
+    if (v.drinks) v.drinks.forEach(d=>{
+      if(!d.name) return;
+      const qty = parseInt(d.qty)||1;
+      drinkMap[d.name] = (drinkMap[d.name]||0)+qty;
+    });
+  });
+
+  const sorted = Object.entries(drinkMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxCount = sorted.length ? sorted[0][1] : 1;
+  document.getElementById('topDrinksTitle').textContent =
+    statPeriod==='month' ? `${statYear}년 자주 마신 음료 TOP 5` : `전체 자주 마신 음료 TOP 5`;
+
+  document.getElementById('drinkRankList').innerHTML = sorted.length
+    ? sorted.map(([name,cnt],i)=>`
+        <div class="drink-rank-item">
+          <span class="rank-num">${i+1}</span>
+          <div class="rank-bar-wrap">
+            <div class="rank-name">${name}</div>
+            <div class="rank-bar-track"><div class="rank-bar-fill" style="width:${Math.round(cnt/maxCount*100)}%"></div></div>
+          </div>
+          <span class="rank-count">${cnt}잔</span>
+        </div>`).join('')
+    : '<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">아직 음료 기록이 없어요</div>';
+}
+
+// ── TAB ──
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`view-${btn.dataset.tab}`).classList.add('active');
+    if(btn.dataset.tab==='stats') renderStats();
+  });
+});
+
+document.querySelectorAll('.period-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    statPeriod = btn.dataset.period;
+    const yearNav = document.getElementById('statPrevYear').parentElement;
+    yearNav.style.visibility = statPeriod==='year'?'hidden':'';
+    renderStats();
+  });
+});
+
+document.getElementById('statPrevYear').addEventListener('click',()=>{ statYear--; renderStats(); });
+document.getElementById('statNextYear').addEventListener('click',()=>{ statYear++; renderStats(); });
+
+document.getElementById('prevBtn').addEventListener('click',()=>{ cur.setMonth(cur.getMonth()-1); render(); });
+document.getElementById('nextBtn').addEventListener('click',()=>{ cur.setMonth(cur.getMonth()+1); render(); });
+
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+load(); render(); statYear=cur.getFullYear();
+</script>
+</body>
+</html>
